@@ -1,10 +1,10 @@
-# PowerShell Active Response Template
+# PowerShell Block Application Template
 
 This repository serves as a template for creating PowerShell-based active response scripts for security automation and incident response. The template provides a standardized structure and common functions to ensure consistent logging, error handling, and execution flow across all active response scripts.
 
 ## Overview
 
-The `automation-template.ps1` file is the foundation for all PowerShell active response scripts. It provides a robust framework with built-in logging, error handling, and standardized output formatting suitable for integration with security orchestration platforms, SIEM systems, and incident response workflows.
+The `firewall-app-block.ps1` file is the foundation for PowerShell active response scripts that create Windows Firewall rules to block a specific application by executable path. It provides a robust framework with built-in logging, error handling, and standardized output formatting suitable for integration with security orchestration platforms, SIEM systems, and incident response workflows.
 
 ## Template Structure
 
@@ -22,28 +22,28 @@ The template includes the following essential components:
 
 ### Command Line Execution
 ```powershell
-.\automation-template.ps1 [-MaxWaitSeconds <int>] [-LogPath <string>] [-ARLog <string>]
+.\firewall-app-block.ps1 [-MaxWaitSeconds <int>] [-LogPath <string>] [-ARLog <string>]
 ```
 
 ### Parameters
 
-| Parameter | Type | Default Value | Description |
-|-----------|------|---------------|-------------|
-| `MaxWaitSeconds` | int | 300 | Maximum execution time in seconds before timeout |
-| `LogPath` | string | `$env:TEMP\Generic-Automation.log` | Path for detailed execution logs |
-| `ARLog` | string | `C:\Program Files (x86)\ossec-agent\active-response\active-responses.log` | Path for active response JSON output |
+| Parameter        | Type   | Default Value                                                    | Description                                  |
+|------------------|--------|------------------------------------------------------------------|----------------------------------------------|
+| `MaxWaitSeconds` | int    | 300                                                              | Maximum execution time in seconds before timeout |
+| `LogPath`        | string | `$env:TEMP\BlockApp-script.log`                                  | Path for execution logs                      |
+| `ARLog`          | string | `C:\Program Files (x86)\ossec-agent\active-response\active-responses.log` | Path for active response JSON output         |
 
 ### Example Invocations
 
 ```powershell
 # Basic execution with default parameters
-.\automation-template.ps1
+.\firewall-app-block.ps1
 
 # Custom timeout and log paths
-.\automation-template.ps1 -MaxWaitSeconds 600 -LogPath "C:\Logs\my-script.log"
+.\firewall-app-block.ps1 -MaxWaitSeconds 600 -LogPath "C:\Logs\BlockApp.log"
 
 # Integration with OSSEC/Wazuh active response
-.\automation-template.ps1 -ARLog "C:\ossec\active-responses.log"
+.\firewall-app-block.ps1 -ARLog "C:\ossec\active-responses.log"
 ```
 
 ## Template Functions
@@ -63,8 +63,8 @@ The template includes the following essential components:
 
 **Usage**:
 ```powershell
-Write-Log "Process started successfully" 'INFO'
-Write-Log "Configuration file not found" 'WARN'
+Write-Log "Firewall rules created to block app: Notepad" 'INFO'
+Write-Log "One or both rules already exist — skipping" 'WARN'
 Write-Log "Critical error occurred" 'ERROR'
 Write-Log "Debug information" 'DEBUG'
 ```
@@ -92,7 +92,7 @@ Write-Log "Debug information" 'DEBUG'
 
 ### 2. Execution Phase
 - Script start logging with timestamp
-- Main action logic execution (customizable section)
+- Main action logic execution (block application by creating firewall rules)
 - Real-time logging of operations
 - Progress monitoring and timeout handling
 
@@ -117,10 +117,26 @@ All scripts output standardized JSON responses to the active response log:
 {
   "timestamp": "2025-07-18T10:30:45.123Z",
   "host": "HOSTNAME",
-  "action": "script_action_name",
-  "status": "success",
-  "result": "Action completed successfully",
-  "data": {}
+  "action": "block_app",
+  "app_name": "Notepad",
+  "exe_path": "C:\\Windows\\System32\\notepad.exe",
+  "status": "app_blocked",
+  "rule_inbound": "BlockApp_Notepad_In",
+  "rule_outbound": "BlockApp_Notepad_Out"
+}
+```
+
+### Already Exists Response
+```json
+{
+  "timestamp": "2025-07-18T10:30:45.123Z",
+  "host": "HOSTNAME",
+  "action": "block_app",
+  "app_name": "Notepad",
+  "exe_path": "C:\\Windows\\System32\\notepad.exe",
+  "status": "already_exists",
+  "rule_inbound": "BlockApp_Notepad_In",
+  "rule_outbound": "BlockApp_Notepad_Out"
 }
 ```
 
@@ -129,16 +145,16 @@ All scripts output standardized JSON responses to the active response log:
 {
   "timestamp": "2025-07-18T10:30:45.123Z",
   "host": "HOSTNAME",
-  "action": "generic_error",
+  "action": "block_app",
   "status": "error",
-  "error": "Detailed error message"
+  "error": "File not found: C:\\Windows\\System32\\notepad.exe"
 }
 ```
 
 ## Implementation Guidelines
 
 ### 1. Customizing the Template
-1. Copy `automation-template.ps1` to your new script name
+1. Copy `firewall-app-block.ps1` to your new script name
 2. Replace the action logic section between the comment markers
 3. Update the action name in the JSON output
 4. Add any additional parameters as needed
@@ -170,7 +186,7 @@ All scripts output standardized JSON responses to the active response log:
 ## Troubleshooting
 
 ### Common Issues
-1. **Permission Errors**: Ensure script has write access to log paths
+1. **Permission Errors**: Ensure script has write access to log paths and is run as Administrator for firewall changes
 2. **Timeout Issues**: Adjust `MaxWaitSeconds` parameter for long-running operations
 3. **Log Rotation**: Check disk space and file permissions for log directory
 4. **JSON Format**: Validate output against expected schema
@@ -178,7 +194,7 @@ All scripts output standardized JSON responses to the active response log:
 ### Debug Mode
 Enable verbose logging by running with `-Verbose` parameter:
 ```powershell
-.\automation-template.ps1 -Verbose
+.\firewall-app-block.ps1 -Verbose
 ```
 
 ## Contributing
@@ -239,13 +255,13 @@ Invoke-WebRequest -Uri "https://github.com/{owner}/{repo}/releases/download/v1.0
 #### Option 2: Direct Download
 ```powershell
 # Download script directly
-Invoke-WebRequest -Uri "https://github.com/{owner}/{repo}/releases/download/v1.0.0/script-name.ps1" -OutFile "script-name.ps1"
+Invoke-WebRequest -Uri "https://github.com/{owner}/{repo}/releases/download/v1.0.0/firewall-app-block.ps1" -OutFile "firewall-app-block.ps1"
 ```
 
 #### Option 3: One-liner Execution
 ```powershell
 # Execute directly from URL (use with caution)
-Invoke-WebRequest -Uri "https://github.com/{owner}/{repo}/releases/download/v1.0.0/script-name.ps1" | Invoke-Expression
+Invoke-WebRequest -Uri "https://github.com/{owner}/{repo}/releases/download/v1.0.0/firewall-app-block.ps1" | Invoke-Expression
 ```
 
 ### Production Deployment
@@ -276,4 +292,4 @@ However, for environments requiring additional security or deployment simplifica
 
 ## License
 
-This template is provided as-is for security automation and incident response purposes.
+This template is provided as-is for security automation and
