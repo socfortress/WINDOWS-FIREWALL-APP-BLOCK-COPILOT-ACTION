@@ -72,6 +72,7 @@ try {
     status=$status
     rule_inbound=$RuleInbound
     rule_outbound=$RuleOutbound
+    copilot_soar = $true
   }
   $logObj | ConvertTo-Json -Compress | Out-File -FilePath $ARLog -Append -Encoding ascii -Width 2000
   Write-Log "JSON appended to $ARLog" 'INFO'
@@ -83,6 +84,7 @@ try {
     action="block_app"
     status="error"
     error=$_.Exception.Message
+    copilot_soar = $true
   }
   $logObj | ConvertTo-Json -Compress | Out-File -FilePath $ARLog -Append -Encoding ascii -Width 2000
 } finally {
