@@ -1,5 +1,5 @@
 {
-  "active_response_name": "WINDOWS-FIREWALL-APP-BLOCK-ACTIVERESPONSE",
+  "copilot_action_name": "WINDOWS-FIREWALL-APP-BLOCK-ACTIVERESPONSE",
   "description": "Blocks a specific application from accessing the network by creating Windows Firewall inbound and outbound rules for the target executable. Logs all actions and outputs a JSON report for SOC automation.",
   "technology": "Windows",
   "icon": "windows",
