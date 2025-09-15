@@ -9,7 +9,11 @@ param(
   [string]$Arg1
 )
 
-if ($Arg1 -and -not $ExePath) { $ExePath = $Arg1 }
+if (-not $ExePath -and $env:ARG1) { $ExePath = $env:ARG1 }
+if (-not $ExePath -and $args.Count -gt 0) { $ExePath = $args[0] }
+if ($ExePath) { $ExePath = [Environment]::ExpandEnvironmentVariables($ExePath.Trim('"')) }
+
+
 
 $ErrorActionPreference='Stop'
 $HostName=$env:COMPUTERNAME
