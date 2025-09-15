@@ -1,19 +1,20 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory=$false)]
-  [string]$ExePath,                      
-  [string]$AppName,                       
-  [int]$MaxWaitSeconds = 300,              
+  [string]$ExePath,
+  [string]$AppName,
+  [int]$MaxWaitSeconds = 300,
   [string]$LogPath = "$env:TEMP\BlockApp-script.log",
-  [string]$ARLog   = 'C:\Program Files (x86)\ossec-agent\active-response\active-responses.log',
-  [string]$Arg1
+  [string]$ARLog   = 'C:\Program Files (x86)\ossec-agent\active-response\active-responses.log'
 )
 
+if ($Arg1 -and -not $ExePath) { $ExePath = $Arg1 }
 if (-not $ExePath -and $env:ARG1) { $ExePath = $env:ARG1 }
 if (-not $ExePath -and $args.Count -gt 0) { $ExePath = $args[0] }
-if ($ExePath) { $ExePath = [Environment]::ExpandEnvironmentVariables($ExePath.Trim('"')) }
-
-
+if ($ExePath) {
+  $ExePath = [Environment]::ExpandEnvironmentVariables($ExePath.Trim('"'))
+  try { $ExePath = (Resolve-Path -LiteralPath $ExePath).Path } catch { }
+}
 
 $ErrorActionPreference='Stop'
 $HostName=$env:COMPUTERNAME
@@ -195,3 +196,4 @@ finally {
   $dur=[int]((Get-Date)-$runStart).TotalSeconds
   Write-Log "=== SCRIPT END : duration ${dur}s ==="
 }
+
