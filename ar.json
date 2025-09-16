@@ -8,7 +8,7 @@
       "name": "ExePath",
       "type": "string",
       "required": true,
-      "description": "Full path to the application (.exe) to block. Default: none (required).",
+      "description": "Application full filepath. IMPORTANT ⚠️: Windows paths must be written with double backslashes (\\). Example: C:\\Users\\user\\Desktop\\Test.exe",
       "default": null,
       "arg_position": "1"
     }
