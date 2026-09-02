@@ -81,84 +81,333 @@ try {
   Write-Log ("Blocking app {0} at {1}" -f $AppName,$ExePath) 'INFO'
 
   $created = 0
-  $status  = "ok"
+  $status = "ok"
 
-  $existingOut = Get-NetFirewallRule -DisplayName $RuleOutbound -ErrorAction SilentlyContinue
-  if ($existingOut) {
-    $lines += ([pscustomobject]@{
-      timestamp      = $ts
-      host           = $HostName
-      action         = 'block_app'
-      copilot_action = $true
-      type           = 'rule_exists'
-      direction      = 'outbound'
-      display_name   = $RuleOutbound
-    } | ConvertTo-Json -Compress -Depth 4)
-  } else {
-    New-NetFirewallRule -DisplayName $RuleOutbound -Direction Outbound -Program $ExePath -Action Block -Enabled True -Profile Any -Protocol Any | Out-Null
-    $created++
-    $lines += ([pscustomobject]@{
-      timestamp      = $ts
-      host           = $HostName
-      action         = 'block_app'
-      copilot_action = $true
-      type           = 'rule_created'
-      direction      = 'outbound'
-      display_name   = $RuleOutbound
-      program        = $ExePath
-      rule_action    = 'Block'
-    } | ConvertTo-Json -Compress -Depth 4)
+  $UseNetSecurity = [bool](Get-Command Get-NetFirewallRule -ErrorAction SilentlyContinue)
+
+  if ($UseNetSecurity) {
+
+      # Modern Windows - existing NetSecurity implementation
+
+      $existingOut = Get-NetFirewallRule -DisplayName $RuleOutbound -ErrorAction SilentlyContinue
+
+      if ($existingOut) {
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_exists'
+              direction = 'outbound'
+              display_name = $RuleOutbound
+          } | ConvertTo-Json -Compress -Depth 4)
+
+      } else {
+
+          New-NetFirewallRule `
+              -DisplayName $RuleOutbound `
+              -Direction Outbound `
+              -Program $ExePath `
+              -Action Block `
+              -Enabled True `
+              -Profile Any `
+              -Protocol Any | Out-Null
+
+          $created++
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_created'
+              direction = 'outbound'
+              display_name = $RuleOutbound
+              program = $ExePath
+              rule_action = 'Block'
+          } | ConvertTo-Json -Compress -Depth 4)
+      }
+
+      $existingIn = Get-NetFirewallRule -DisplayName $RuleInbound -ErrorAction SilentlyContinue
+
+      if ($existingIn) {
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_exists'
+              direction = 'inbound'
+              display_name = $RuleInbound
+          } | ConvertTo-Json -Compress -Depth 4)
+
+      } else {
+
+          New-NetFirewallRule `
+              -DisplayName $RuleInbound `
+              -Direction Inbound `
+              -Program $ExePath `
+              -Action Block `
+              -Enabled True `
+              -Profile Any `
+              -Protocol Any | Out-Null
+
+          $created++
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_created'
+              direction = 'inbound'
+              display_name = $RuleInbound
+              program = $ExePath
+              rule_action = 'Block'
+          } | ConvertTo-Json -Compress -Depth 4)
+      }
+
+  }
+  else {
+
+      # Legacy Windows - Windows Firewall COM API
+
+      $FirewallPolicy = New-Object -ComObject HNetCfg.FwPolicy2
+
+      # OUTBOUND
+      $existingOut = $null
+
+      try {
+          $existingOut = $FirewallPolicy.Rules.Item($RuleOutbound)
+      }
+      catch {
+          $existingOut = $null
+      }
+
+      if ($existingOut) {
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_exists'
+              direction = 'outbound'
+              display_name = $RuleOutbound
+          } | ConvertTo-Json -Compress -Depth 4)
+
+      }
+      else {
+
+          $FirewallRule = New-Object -ComObject HNetCfg.FWRule
+
+          $FirewallRule.Name = $RuleOutbound
+          $FirewallRule.Description = "Block outbound traffic for $AppName"
+          $FirewallRule.ApplicationName = $ExePath
+
+          # NET_FW_RULE_DIRECTION_OUT
+          $FirewallRule.Direction = 2
+
+          # NET_FW_ACTION_BLOCK
+          $FirewallRule.Action = 0
+
+          # NET_FW_IP_PROTOCOL_ANY
+          $FirewallRule.Protocol = 256
+
+          $FirewallRule.Enabled = $true
+
+          # NET_FW_PROFILE2_ALL
+          $FirewallRule.Profiles = 2147483647
+
+          $FirewallPolicy.Rules.Add($FirewallRule)
+
+          $created++
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_created'
+              direction = 'outbound'
+              display_name = $RuleOutbound
+              program = $ExePath
+              rule_action = 'Block'
+          } | ConvertTo-Json -Compress -Depth 4)
+      }
+
+      # INBOUND
+      $existingIn = $null
+
+      try {
+          $existingIn = $FirewallPolicy.Rules.Item($RuleInbound)
+      }
+      catch {
+          $existingIn = $null
+      }
+
+      if ($existingIn) {
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_exists'
+              direction = 'inbound'
+              display_name = $RuleInbound
+          } | ConvertTo-Json -Compress -Depth 4)
+
+      }
+      else {
+
+          $FirewallRule = New-Object -ComObject HNetCfg.FWRule
+
+          $FirewallRule.Name = $RuleInbound
+          $FirewallRule.Description = "Block inbound traffic for $AppName"
+          $FirewallRule.ApplicationName = $ExePath
+
+          # NET_FW_RULE_DIRECTION_IN
+          $FirewallRule.Direction = 1
+
+          # NET_FW_ACTION_BLOCK
+          $FirewallRule.Action = 0
+
+          # NET_FW_IP_PROTOCOL_ANY
+          $FirewallRule.Protocol = 256
+
+          $FirewallRule.Enabled = $true
+          $FirewallRule.Profiles = 2147483647
+
+          $FirewallPolicy.Rules.Add($FirewallRule)
+
+          $created++
+
+          $lines += ([pscustomobject]@{
+              timestamp = $ts
+              host = $HostName
+              action = 'block_app'
+              copilot_action = $true
+              type = 'rule_created'
+              direction = 'inbound'
+              display_name = $RuleInbound
+              program = $ExePath
+              rule_action = 'Block'
+          } | ConvertTo-Json -Compress -Depth 4)
+      }
   }
 
-  # INBOUND rule
-  $existingIn = Get-NetFirewallRule -DisplayName $RuleInbound -ErrorAction SilentlyContinue
-  if ($existingIn) {
-    $lines += ([pscustomobject]@{
-      timestamp      = $ts
-      host           = $HostName
-      action         = 'block_app'
-      copilot_action = $true
-      type           = 'rule_exists'
-      direction      = 'inbound'
-      display_name   = $RuleInbound
-    } | ConvertTo-Json -Compress -Depth 4)
-  } else {
-    New-NetFirewallRule -DisplayName $RuleInbound -Direction Inbound -Program $ExePath -Action Block -Enabled True -Profile Any -Protocol Any | Out-Null
-    $created++
-    $lines += ([pscustomobject]@{
-      timestamp      = $ts
-      host           = $HostName
-      action         = 'block_app'
-      copilot_action = $true
-      type           = 'rule_created'
-      direction      = 'inbound'
-      display_name   = $RuleInbound
-      program        = $ExePath
-      rule_action    = 'Block'
-    } | ConvertTo-Json -Compress -Depth 4)
+  if ($created -gt 0) {
+      $status = "app_blocked"
+  }
+  elseif ($existingIn -or $existingOut) {
+      $status = "already_exists"
   }
 
-  if ($created -gt 0) { $status = "app_blocked" } elseif ($existingIn -or $existingOut) { $status = "already_exists" }
 
+  # Verify both rules
   $rulesToVerify = @($RuleOutbound, $RuleInbound)
+
   foreach ($rn in $rulesToVerify) {
-    $r  = Get-NetFirewallRule -DisplayName $rn -ErrorAction SilentlyContinue
-    $af = if ($r) { Get-NetFirewallApplicationFilter -AssociatedNetFirewallRule $r } else { $null }
-    $prog = if ($af) { ($af.Program | Select-Object -First 1) } else { $null }
-    $lines += ([pscustomobject]@{
-      timestamp       = $ts
-      host            = $HostName
-      action          = 'block_app'
-      copilot_action  = $true
-      type            = 'verify_rule'
-      display_name    = $rn
-      exists          = [bool]$r
-      enabled         = if ($r) { [bool]$r.Enabled } else { $false }
-      direction       = if ($r) { "$($r.Direction)" } else { $null }
-      rule_action     = if ($r) { "$($r.Action)" } else { $null }
-      program         = $prog
-      program_matches = if ($prog) { ($prog -eq $ExePath) } else { $false }
-    } | ConvertTo-Json -Compress -Depth 4)
+
+      if ($UseNetSecurity) {
+
+          $r = Get-NetFirewallRule -DisplayName $rn -ErrorAction SilentlyContinue
+          $af = if ($r) {
+              Get-NetFirewallApplicationFilter -AssociatedNetFirewallRule $r
+          }
+          else {
+              $null
+          }
+
+          $prog = if ($af) {
+              ($af.Program | Select-Object -First 1)
+          }
+          else {
+              $null
+          }
+
+          $enabled = if ($r) { [bool]$r.Enabled } else { $false }
+          $directionValue = if ($r) { "$($r.Direction)" } else { $null }
+          $actionValue = if ($r) { "$($r.Action)" } else { $null }
+      }
+      else {
+
+          $r = $null
+
+          try {
+              $r = $FirewallPolicy.Rules.Item($rn)
+          }
+          catch {
+              $r = $null
+          }
+
+          $prog = if ($r) {
+              $r.ApplicationName
+          }
+          else {
+              $null
+          }
+
+          $enabled = if ($r) {
+              [bool]$r.Enabled
+          }
+          else {
+              $false
+          }
+
+          $directionValue = if ($r) {
+              if ($r.Direction -eq 1) {
+                  "Inbound"
+              }
+              elseif ($r.Direction -eq 2) {
+                  "Outbound"
+              }
+              else {
+                  "$($r.Direction)"
+              }
+          }
+          else {
+              $null
+          }
+
+          $actionValue = if ($r) {
+              if ($r.Action -eq 0) {
+                  "Block"
+              }
+              elseif ($r.Action -eq 1) {
+                  "Allow"
+              }
+              else {
+                  "$($r.Action)"
+              }
+          }
+          else {
+              $null
+          }
+      }
+
+      $lines += ([pscustomobject]@{
+          timestamp = $ts
+          host = $HostName
+          action = 'block_app'
+          copilot_action = $true
+          type = 'verify_rule'
+          display_name = $rn
+          exists = [bool]$r
+          enabled = $enabled
+          direction = $directionValue
+          rule_action = $actionValue
+          program = $prog
+          program_matches = if ($prog) {
+              ($prog -eq $ExePath)
+          }
+          else {
+              $false
+          }
+      } | ConvertTo-Json -Compress -Depth 4)
   }
 
   $summary = [pscustomobject]@{
